@@ -40,7 +40,7 @@ def _parse(data, obj_name, attr_map):
     return parsed_objects
 
 
-class IrishRailRTPI:
+class IrishRailRTPI():
     """Interacts with the Irish Rail RTPI API.
     """
 
