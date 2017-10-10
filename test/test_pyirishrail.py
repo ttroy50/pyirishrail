@@ -1,6 +1,6 @@
 from pyirishrail.pyirishrail import IrishRailRTPI
 
-trains =    [{
+trains = [{
         "code": "E136 ",
         "destination": "Bray",
         "destination_time": "23:32",
@@ -49,6 +49,7 @@ trains =    [{
         "type": "DART"
     }]
 
+
 def test_prune_direction():
     ir = IrishRailRTPI()
     only_southbound = ir._prune_trains(trains, direction="Southbound")
@@ -74,19 +75,26 @@ def test_prune_destination():
     for train in only_greystones:
         assert train["destination"] == "Greystones"
 
+
 def test_prune_both():
     ir = IrishRailRTPI()
-    only_bray = ir._prune_trains(trains, direction="Northbound", destination="Bray")
+    only_bray = ir._prune_trains(trains,
+                                 direction="Northbound",
+                                 destination="Bray")
     assert len(only_bray) == 1
     for train in only_bray:
         assert train['direction'] == "Northbound"
         assert train["destination"] == "Bray"
 
-    only_greystones = ir._prune_trains(trains, direction="Southbound", destination="Greystones")
+    only_greystones = ir._prune_trains(trains,
+                                       direction="Southbound",
+                                       destination="Greystones")
     assert len(only_greystones) == 2
     for train in only_greystones:
         assert train['direction'] == "Southbound"
         assert train["destination"] == "Greystones"
 
-    no_trains = ir._prune_trains(trains, direction="Northbound", destination="Greystones")
+    no_trains = ir._prune_trains(trains,
+                                 direction="Northbound",
+                                 destination="Greystones")
     assert len(no_trains) == 0

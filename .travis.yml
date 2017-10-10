@@ -10,3 +10,6 @@ install:
   - pip install tox-travis
 script:
   - tox
+  - flake8 pyirishrail
+  - pylint pyirishrail
+  - flake8 test
