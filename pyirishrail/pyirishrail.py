@@ -6,6 +6,7 @@ https://github.com/scottcunningham/irish_rail.py/blob/master/irish_rail.py
 """
 
 from xml.dom import minidom
+import datetime
 import logging
 import requests
 
@@ -45,6 +46,7 @@ class IrishRailRTPI(object):
     """
 
     # pylint: disable=R0201
+    # pylint: disable=too-many-arguments
 
     def _parse_station_list(self, data):
         """parse the station list"""
@@ -91,13 +93,29 @@ class IrishRailRTPI(object):
         }
         return _parse(url, 'objTrainPositions', attr_map)
 
+    def _parse_train_movement_data(self, url):
+        """parse train data"""
+        attr_map = {
+            'code': 'TrainCode',
+            'date': 'TrainDate',
+            'location_code': 'LocationCode',
+            'location': 'LocationFullName',
+            'origin': 'TrainOrigin',
+            'destination': 'TrainDestination',
+            'expected_arrival_time': 'ExpectedArrival',
+            'expected_departure_time': 'ExpectedDeparture',
+            'scheduled_arrival_time': 'ScheduledArrival',
+            'scheduled_departure_time': 'ScheduledDeparture',
+        }
+        return _parse(url, 'objTrainMovements', attr_map)
+
     def get_all_stations(self, station_type=None):
         """Returns information of all stations.
         @param<optional> station_type: ['mainline', 'suburban', 'dart']
         """
         params = None
         if station_type and station_type in STATION_TYPE_TO_CODE_DICT:
-            url = self.api_base_url + 'getAllStationsXML_WithStationType?'
+            url = self.api_base_url + 'getAllStationsXML_WithStationType'
             params = {
                 'stationType': STATION_TYPE_TO_CODE_DICT[station_type]
             }
@@ -142,14 +160,21 @@ class IrishRailRTPI(object):
                             station_name,
                             num_minutes=None,
                             direction=None,
-                            destination=None):
+                            destination=None,
+                            stops_at=None):
         """Returns all trains due to serve station `station_name`.
+        @param station_code
+        @param num_minutes. Only trains within this time. Between 5 and 90
+        @param direction Filter by direction. Northbound or Southbound
+        @param destination Filter by name of the destination stations
+        @param stops_at Filber by name of one of the stops
         """
-        url = self.api_base_url + 'getStationDataByNameXML?'
+        url = self.api_base_url + 'getStationDataByNameXML'
         params = {
             'StationDesc': station_name
         }
         if num_minutes:
+            url = url + '_withNumMins'
             params['NumMins'] = num_minutes
 
         response = requests.get(
@@ -162,7 +187,8 @@ class IrishRailRTPI(object):
         if direction is not None or destination is not None:
             return self._prune_trains(trains,
                                       direction=direction,
-                                      destination=destination)
+                                      destination=destination,
+                                      stops_at=stops_at)
 
         return trains
 
@@ -170,14 +196,21 @@ class IrishRailRTPI(object):
                             station_code,
                             num_minutes=None,
                             direction=None,
-                            destination=None):
+                            destination=None,
+                            stops_at=None):
         """Returns all trains due to serve station with code `station code`.
+        @param station_code
+        @param num_minutes. Only trains within this time. Between 5 and 90
+        @param direction Filter by train direction. Northbound or Southbound
+        @param destination Filter by name of the destination stations
+        @param stops_at Filber by name of one of the stops
         """
-        url = self.api_base_url + 'getStationDataByCodeXML?'
+        url = self.api_base_url + 'getStationDataByCodeXML'
         params = {
             'StationCode': station_code
         }
-        if params:
+        if num_minutes:
+            url = url + '_withNumMins'
             params['NumMins'] = num_minutes
 
         response = requests.get(
@@ -190,12 +223,19 @@ class IrishRailRTPI(object):
         if direction is not None or destination is not None:
             return self._prune_trains(trains,
                                       direction=direction,
-                                      destination=destination)
+                                      destination=destination,
+                                      stops_at=stops_at)
 
         return trains
 
-    def _prune_trains(self, trains, direction=None, destination=None):
-        """Only return the data matching direction and / or destination"""
+    def _prune_trains(self, trains, direction=None,
+                      destination=None, stops_at=None):
+        """Only return the data matching direction and / or destination
+        @param trains list of trains to filter
+        @param direction Filter by train direction. Northbound or Southbound
+        @param destination Filter by name of the destination stations
+        @param stops_at Filber by name of one of the stops
+        """
         pruned_data = []
         for train in trains:
             append = True
@@ -205,12 +245,41 @@ class IrishRailRTPI(object):
             if destination is not None and train["destination"] != destination:
                 append = False
 
+            if stops_at is not None:
+                stops = self.get_train_stops(train["code"])
+                for stop in stops:
+                    append = False
+                    if stop["location"] == stops_at:
+                        append = True
+                        break
+
             if append:
                 pruned_data.append(train)
 
         return pruned_data
 
-    # Ctor
+    def get_train_stops(self, train_code, date=None):
+        """Get details for a train.
+        @param train_code code for the trian
+        @param date Date in format "15 oct 2017". If none use today
+        """
+        if date is None:
+            date = datetime.date.today().strftime("%d %B %Y")
+
+        url = self.api_base_url + 'getTrainMovementsXML'
+        params = {
+            'TrainId': train_code,
+            'TrainDate': date
+        }
+
+        response = requests.get(
+            url, params=params, timeout=10)
+
+        if response.status_code != 200:
+            return []
+
+        return self._parse_train_movement_data(response.content)
+
     def __init__(self):
         """Setup Class."""
         self.api_base_url = 'http://api.irishrail.ie/realtime/realtime.asmx/'
