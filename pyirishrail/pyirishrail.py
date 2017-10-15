@@ -245,13 +245,14 @@ class IrishRailRTPI(object):
             if destination is not None and train["destination"] != destination:
                 append = False
 
-            if stops_at is not None:
-                stops = self.get_train_stops(train["code"])
-                for stop in stops:
-                    append = False
-                    if stop["location"] == stops_at:
-                        append = True
-                        break
+            if append and stops_at is not None:
+                if stops_at != train['destination']:
+                    stops = self.get_train_stops(train["code"])
+                    for stop in stops:
+                        append = False
+                        if stop["location"] == stops_at:
+                            append = True
+                            break
 
             if append:
                 pruned_data.append(train)
