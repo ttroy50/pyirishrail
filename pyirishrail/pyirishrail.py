@@ -230,7 +230,8 @@ class IrishRailRTPI(object):
 
     def _prune_trains(self, trains, direction=None,
                       destination=None, stops_at=None):
-        """Only return the data matching direction and / or destination
+        """Only return the data matching direction and / or destination.
+        If stops_at is set this may do a number of extra HTTP requests
         @param trains list of trains to filter
         @param direction Filter by train direction. Northbound or Southbound
         @param destination Filter by name of the destination stations
